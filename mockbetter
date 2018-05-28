@@ -104,6 +104,12 @@ class MockBetter
         return send_error 'a tenant is required'
       end
 
+      tenant(name)['routes'].each do |route|
+        if route['method'] == body['method'] && route['path'] == body['path']
+          return send_conf
+        end
+      end
+
       tenant(name)['routes'] << body
       send_conf
 
@@ -179,7 +185,7 @@ class MockBetter
 end
 
 ENV['HOST'] ||= '0.0.0.0'
-ENV['PORT'] ||= '3000'
+ENV['PORT'] ||= '1080'
 
 Rack::Server.start \
   app: MockBetter.new,

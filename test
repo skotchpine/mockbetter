@@ -39,7 +39,7 @@ def host
 end
 
 def port
-  ENV['PORT'] || '3000'
+  ENV['PORT'] || '1080'
 end
 
 def base_url
@@ -56,18 +56,16 @@ end
       begin
         [rep.code, JSON.parse(rep.body.to_s)]
       rescue Exception => e
-        bad e if @error
+        bad "Exception from json: " + e.to_s if @error
         [rep.code, rep.body]
       end
     rescue Exception => e
-      bad e if @error
+      bad "Exception from request: " + e.to_s if @error
       [nil, nil]
     end
   end
 end
 
-@debug = false
-@error = true
 
 code, _ = put '/mock/conf'
 unless code == 200
@@ -77,6 +75,9 @@ unless code == 200
     end
   sleep 1
 end
+
+@debug = false
+@error = true
 
 puts "\n---- Starting Test Suite ----"
 
@@ -164,6 +165,21 @@ describe 'mock requests with tenants' do
   test 'reset deletes all tenants (body)', body['message'] == 'mock better'
 end
 
+describe 'mock request deduplication' do
+  put '/mock/reset'
+  put '/mock/conf',
+    json: { default: { code: 404, mode: 'mock', body: { message: 'hello' } } }
+
+  put '/mock/routes/tenant1',
+    json: { method: 'POST', body: { message: 'route1' }, code: 503, path: '/route1' }
+  put '/mock/routes/tenant1',
+    json: { method: 'POST', body: { message: 'route1' }, code: 503, path: '/route1' }
+
+  _, body = get '/mock/conf'
+  test 'routes are unique method-path pairs',
+    body['tenants']['tenant1']['routes'].count == 1
+end
+
 describe 'request history' do
   put '/mock/reset'
 
@@ -176,17 +192,20 @@ describe 'request history' do
   post '/tenant2/route3', json: { message: 1 }
 
   _, body = get '/mock/history/tenant1'
-  test 'records tenant history', body.map { |r| r['body']['message'] } == [1, 2, 3]
+  test 'records tenant history',
+    body.map { |r| r['body']['message'] } == [1, 2, 3]
 
   _, body = get '/mock/history/tenant2'
-  test 'records multiple tenants', body.map { |r| r['body']['message'] } == [3, 2, 1]
+  test 'records multiple tenants',
+    body.map { |r| r['body']['message'] } == [3, 2, 1]
 
   delete '/mock/history/tenant1'
   _, body = get '/mock/history/tenant1'
   test 'deletes tenant', body == []
 
   _, body = get '/mock/history/tenant2'
-  test 'deletes only specified tenant', body.map { |r| r['body']['message'] } == [3, 2, 1]
+  test 'deletes only specified tenant',
+    body.map { |r| r['body']['message'] } == [3, 2, 1]
 
   put '/mock/reset'
   _, body = get '/mock/history/tenant2'
