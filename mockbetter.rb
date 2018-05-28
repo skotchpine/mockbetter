@@ -144,7 +144,7 @@ class MockBetter
       tenant(name)['history'] << {
         'method' => method,
         'body' => body,
-        'path' => path,
+        'path' => '/' + parts.drop(1).join('/'),
       }
 
       tenant(name)['routes'].each do |route|
