@@ -69,6 +69,7 @@ end
 code, _ = get '/mock/conf'
 unless code == 200
   `thin start -a #{host} -p #{port} -P .testserver -d`
+  @thin = true
   sleep 1
 end
 
@@ -144,8 +145,7 @@ describe 'mock requests with tenants' do
   test 'responds with given code per tenant', code && code == 201
   test 'responds with given code per tenant', body['message'] == 'route2'
 
-  delete '/mock/routes/tenant1',
-    json: { method: 'POST', path: '/route1' }
+  delete '/mock/routes/tenant1'
 
   code, body = post '/tenant1/route1'
   test 'responds with default code after deletion', code && code == 404
@@ -235,4 +235,4 @@ end
 puts "\n---- Test Suite Complete ----"
 puts
 
-`thin stop -P .testserver`
+`thin stop -P .testserver` if @thin

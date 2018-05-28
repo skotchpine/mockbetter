@@ -65,7 +65,7 @@ class MockBetter
   end
 
   def call(env)
-    body = 
+    body =
       begin
         JSON.parse(env['rack.input'].string)
       rescue JSON::ParserError
@@ -115,19 +115,12 @@ class MockBetter
 
     ## DELETE TENANT ROUTE
     elsif method == 'DELETE' && parts[0..1] == %w[mock routes]
-      unless body.is_a?(Hash)
-        return send_error 'a json object is required'
-      end
-
       name = parts[2]
       unless name
         return send_error 'a tenant is required'
       end
 
-      tenant(name)['routes'].reject! do |route|
-        route['method'] == body['method']
-        route['path'] == body['path']
-      end
+      tenant(name)['routes'] = []
       send_conf
 
     ## GET TENANT HISTORY
