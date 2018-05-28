@@ -52,7 +52,7 @@
 
 ### 1. dump
 
-`curl -XPUT -d'{"default":{"mode":"dump"}' localhost:1080`
+`curl -XPUT -d'{"default":{"mode":"dump"}' localhost:1080/mock/conf`
 
 `curl -d'{"say": "hello"}' localhost:1080`
 
@@ -60,7 +60,7 @@
 
 ### 2. echo
 
-`curl -XPUT -d'{"default":{"mode":"echo"}' localhost:1080`
+`curl -XPUT -d'{"default":{"mode":"echo"}' localhost:1080/mock/conf`
 
 `curl -d'{"say": "hello"}' localhost:1080`
 
@@ -68,7 +68,7 @@
 
 ### 3. mock
 
-`curl -XPUT -d'{"default":{"mode":"mock","status":"400"}' localhost:1080`
+`curl -XPUT -d'{"default":{"mode":"mock","status":"400"}' localhost:1080/mock/conf`
 
 `curl -d'{"say": "hello"}' localhost:1080`
 
