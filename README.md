@@ -8,11 +8,11 @@
 
 1. mock a route
 
-  `curl -XPUT localhost:1080/mock/routes/x/sayhello`
+  `curl -XPUT -d'{"method":"GET","path":"/how-do","code":"200","body":{"mock":"better"}}' localhost:1080/mock/routes/x/how-do`
 
 1. verify behavior
 
-  `curl localhost:1080/x/sayhello`
+  `curl localhost:1080/x/how-do`
 
 ## all endpoints
 
