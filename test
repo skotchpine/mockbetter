@@ -66,13 +66,9 @@ end
   end
 end
 
-
-code, _ = put '/mock/conf'
+code, _ = get '/mock/conf'
 unless code == 200
-  @server =
-    Thread.new do
-      load './mockbetter'
-    end
+  `thin start -a #{host} -p #{port} -P .testserver -d`
   sleep 1
 end
 
@@ -239,4 +235,4 @@ end
 puts "\n---- Test Suite Complete ----"
 puts
 
-@server&.exit
+`thin stop -P .testserver`

@@ -8,4 +8,4 @@ ENV HOST 0.0.0.0
 
 EXPOSE 1080
 
-CMD ruby mockbetter
+CMD thin start -a $HOST -p $PORT

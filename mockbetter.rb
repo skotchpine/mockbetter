@@ -183,11 +183,3 @@ class MockBetter
     end
   end
 end
-
-ENV['HOST'] ||= '0.0.0.0'
-ENV['PORT'] ||= '1080'
-
-Rack::Server.start \
-  app: MockBetter.new,
-  Host: ENV['HOST'],
-  Port: ENV['PORT']
