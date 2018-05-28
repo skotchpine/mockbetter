@@ -26,7 +26,7 @@ def test(name, cond)
 end
 
 def conf
-  _, body = get 'http://localhost:3000/mock/conf'
+  _, body = get '/mock/conf'
   puts body.to_json
 end
 
@@ -34,10 +34,22 @@ def debug
   @debug = true
 end
 
+def host
+  ENV['HOST'] || 'localhost'
+end
+
+def port
+  ENV['PORT'] || '3000'
+end
+
+def base_url
+  "http://#{host}:#{port}"
+end
+
 %w[head options delete post put patch get].each do |m|
-  define_singleton_method m do |*args, **opts|
+  define_singleton_method m do |path, **opts|
     begin
-      rep = HTTP.send(m, *args, **opts)
+      rep = HTTP.send(m, base_url + path, **opts)
       puts rep.inspect if @debug
       puts rep.body.to_s.inspect if @debug
 
@@ -57,26 +69,30 @@ end
 @debug = false
 @error = true
 
-@server =
-  Thread.new do
-    load './mockbetter'
-  end
-sleep 1
+code, _ = put '/mock/conf'
+unless code == 200
+  @server =
+    Thread.new do
+      load './mockbetter'
+    end
+  sleep 1
+end
+
 puts "\n---- Starting Test Suite ----"
 
 describe 'get config' do
-  put 'http://localhost:3000/mock/reset'
-  code, body = get 'http://localhost:3000/mock/conf'
+  put '/mock/reset'
+  code, body = get '/mock/conf'
   test 'responds with 200',            code && code == 200
   test 'responds with default config', body.dig('default', 'code') == '200'
   test 'responds with default config', body.dig('default', 'mode') == 'mock'
 end
 
 describe 'dump default mode' do
-  put 'http://localhost:3000/mock/reset'
-  put 'http://localhost:3000/mock/conf',
+  put '/mock/reset'
+  put '/mock/conf',
     json: { default: { mode: 'dump' } }
-  code, body = get 'http://localhost:3000/tenant1'
+  code, body = get '/tenant1'
   puts body['message']
   test 'respondeds with 200',          code && code == 200
   test 'method captured and returned', body['method'] == 'GET'
@@ -84,105 +100,105 @@ describe 'dump default mode' do
 end
 
 describe 'mock default mode' do
-  put 'http://localhost:3000/mock/reset'
-  put 'http://localhost:3000/mock/conf',
+  put '/mock/reset'
+  put '/mock/conf',
     json: { default: { code: 404, mode: 'mock' } }
-  code, body = get 'http://localhost:3000/tenant1'
+  code, body = get '/tenant1'
   test 'responds with configured status', code && code == 404
 
-  put 'http://localhost:3000/mock/conf',
+  put '/mock/conf',
     json: { default: { body: { message: 'hello world' }, mode: 'mock' } }
-  code, body = get 'http://localhost:3000/tenant1'
+  code, body = get '/tenant1'
   test 'responds with configured body', body['message'] == 'hello world'
   test 'retains configured status',     code && code == 404
 end
 
 describe 'echo default mode' do
-  put 'http://localhost:3000/mock/reset'
-  put 'http://localhost:3000/mock/conf', json: { default: { mode: 'echo' } }
-  code, body = patch 'http://localhost:3000/tenant1', json: { message: 'hello' }
+  put '/mock/reset'
+  put '/mock/conf', json: { default: { mode: 'echo' } }
+  code, body = patch '/tenant1', json: { message: 'hello' }
   test 'responds with 200',  code && code == 200
   test 'responds with body', body['message'] == 'hello'
 end
 
 describe 'mock requests with tenants' do
-  put 'http://localhost:3000/mock/reset'
-  put 'http://localhost:3000/mock/conf',
+  put '/mock/reset'
+  put '/mock/conf',
     json: { default: { code: 404, mode: 'mock', body: { message: 'hello' } } }
-  put 'http://localhost:3000/mock/routes/tenant1',
+  put '/mock/routes/tenant1',
     json: { method: 'POST', body: { message: 'route1' }, code: 503, path: '/route1' }
-  put 'http://localhost:3000/mock/routes/tenant2',
+  put '/mock/routes/tenant2',
     json: { method: 'DELETE', body: { message: 'route2' }, code: 201, path: '/route2' }
 
-  code, body = put 'http://localhost:3000/tenant1/route1'
+  code, body = put '/tenant1/route1'
   test 'only mocks given method', code && code == 404
 
-  code, body = post 'http://localhost:3000/tenant1/route1'
+  code, body = post '/tenant1/route1'
   test 'responds with given code', code && code == 503
   test 'responds with given code', body['message'] == 'route1'
 
-  code, body = delete 'http://localhost:3000/tenant2/route3'
+  code, body = delete '/tenant2/route3'
   test 'only mocks given route', code && code == 404
 
-  code, body = post 'http://localhost:3000/tenant2/route1'
+  code, body = post '/tenant2/route1'
   test 'only mocks given tenant', code && code == 404
 
-  code, body = delete 'http://localhost:3000/tenant2/route2'
+  code, body = delete '/tenant2/route2'
   test 'responds with given code per tenant', code && code == 201
   test 'responds with given code per tenant', body['message'] == 'route2'
 
-  delete 'http://localhost:3000/mock/routes/tenant1',
+  delete '/mock/routes/tenant1',
     json: { method: 'POST', path: '/route1' }
 
-  code, body = post 'http://localhost:3000/tenant1/route1'
+  code, body = post '/tenant1/route1'
   test 'responds with default code after deletion', code && code == 404
   test 'responds with given code after deletion', body['message'] == 'hello'
 
-  code, body = delete 'http://localhost:3000/tenant2/route2'
+  code, body = delete '/tenant2/route2'
   test 'delets only specified tenant (code)', code && code == 201
   test 'delets only specified tenant (body)', body['message'] == 'route2'
 
-  put 'http://localhost:3000/mock/reset'
-  code, body = delete 'http://localhost:3000/tenant2/route2'
+  put '/mock/reset'
+  code, body = delete '/tenant2/route2'
   test 'reset deletes all tenants (code)', code && code == 200
   test 'reset deletes all tenants (body)', body['message'] == 'mock better'
 end
 
 describe 'request history' do
-  put 'http://localhost:3000/mock/reset'
+  put '/mock/reset'
 
-  post 'http://localhost:3000/tenant1/route1', json: { message: 1 }
-  post 'http://localhost:3000/tenant1/route2', json: { message: 2 }
-  post 'http://localhost:3000/tenant1/route3', json: { message: 3 }
+  post '/tenant1/route1', json: { message: 1 }
+  post '/tenant1/route2', json: { message: 2 }
+  post '/tenant1/route3', json: { message: 3 }
 
-  post 'http://localhost:3000/tenant2/route1', json: { message: 3 }
-  post 'http://localhost:3000/tenant2/route2', json: { message: 2 }
-  post 'http://localhost:3000/tenant2/route3', json: { message: 1 }
+  post '/tenant2/route1', json: { message: 3 }
+  post '/tenant2/route2', json: { message: 2 }
+  post '/tenant2/route3', json: { message: 1 }
 
-  _, body = get 'http://localhost:3000/mock/history/tenant1'
+  _, body = get '/mock/history/tenant1'
   test 'records tenant history', body.map { |r| r['body']['message'] } == [1, 2, 3]
 
-  _, body = get 'http://localhost:3000/mock/history/tenant2'
+  _, body = get '/mock/history/tenant2'
   test 'records multiple tenants', body.map { |r| r['body']['message'] } == [3, 2, 1]
 
-  delete 'http://localhost:3000/mock/history/tenant1'
-  _, body = get 'http://localhost:3000/mock/history/tenant1'
+  delete '/mock/history/tenant1'
+  _, body = get '/mock/history/tenant1'
   test 'deletes tenant', body == []
 
-  _, body = get 'http://localhost:3000/mock/history/tenant2'
+  _, body = get '/mock/history/tenant2'
   test 'deletes only specified tenant', body.map { |r| r['body']['message'] } == [3, 2, 1]
 
-  put 'http://localhost:3000/mock/reset'
-  _, body = get 'http://localhost:3000/mock/history/tenant2'
+  put '/mock/reset'
+  _, body = get '/mock/history/tenant2'
   test 'reset deletes all tenants', body == []
 end
 
 describe 'reset history ignores routes' do
-  put 'http://localhost:3000/mock/reset'
-  put 'http://localhost:3000/mock/routes/tenant1', json: { method: 'POST', path: 'path' }
-  delete 'http://localhost:3000/mock/history/tenant1'
+  put '/mock/reset'
+  put '/mock/routes/tenant1', json: { method: 'POST', path: 'path' }
+  delete '/mock/history/tenant1'
 
-  _, body = get 'http://localhost:3000/mock/conf'
+  _, body = get '/mock/conf'
   test 'reset history removes all requests',
     body['tenants']['tenant1']['history'].count.zero?
   test 'reset history leaves routes intact',
@@ -190,11 +206,11 @@ describe 'reset history ignores routes' do
 end
 
 describe 'reset routes ignores history' do
-  put 'http://localhost:3000/mock/reset'
-  post 'http://localhost:3000/tenant1/route1', json: { message: 1 }
-  delete 'http://localhost:3000/mock/routes/tenant1'
+  put '/mock/reset'
+  post '/tenant1/route1', json: { message: 1 }
+  delete '/mock/routes/tenant1'
 
-  _, body = get 'http://localhost:3000/mock/conf'
+  _, body = get '/mock/conf'
   test 'reset routes removes all routes',
     body['tenants']['tenant1']['routes'].count.zero?
   test 'reset routes leaves history intact',
@@ -204,4 +220,4 @@ end
 puts "\n---- Test Suite Complete ----"
 puts
 
-@server.exit
+@server&.exit
