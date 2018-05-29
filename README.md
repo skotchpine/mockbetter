@@ -8,7 +8,7 @@
 
 ### 2. mock a route
 
-  `curl -XPUT -d'{"method":"GET","path":"/how-do","code":"200","body":{"mock":"better"}}' localhost:1080/mock/routes/x/how-do`
+  `curl -XPUT -d'{"method":"GET","path":"/how-do","code":"200","body":{"mock":"better"}}' localhost:1080/mock/routes/x`
 
 ### 3. verify behavior
 
