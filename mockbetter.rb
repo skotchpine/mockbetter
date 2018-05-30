@@ -14,52 +14,42 @@ class MockBetter
   end
 
   def reset
-    MockBetter.conf = {
+    @conf = {
       'headers' => {},
-      'prefix' => '',
+      'prefix' => 'mock',
       'default' => {
         'code' => '200',
         'body' => { 'message' => 'mock better' },
         'mode' => 'mock',
       },
-      'tenants' => {},
-    }
-    MockBetter.conf['headers']['Content-Type'] = 'application/json'
-  end
-
-  def new_tenant
-    {
       'history' => [],
       'routes' => [],
     }
-  end
-
-  def tenant(name)
-    MockBetter.conf['tenants'][name] ||= new_tenant
+    @conf['headers']['Content-Type'] = 'application/json'
   end
 
   def send_conf
-    ['200', MockBetter.conf['headers'], [MockBetter.conf.to_json]]
+    ['200', @conf['headers'], [@conf.to_json]]
   end
 
   def send_error(msg)
-    ['500', MockBetter.conf['headers'], [{ 'message': msg}.to_json]]
+    ['500', @conf['headers'], [{ 'message': msg}.to_json]]
   end
 
   def send_okay(body)
-    ['200', MockBetter.conf['headers'], [body.to_json]]
+    ['200', @conf['headers'], [body.to_json]]
   end
 
   def default(method, path, body)
-    if MockBetter.conf['default']['mode'] == 'dump'
+    if @conf['default']['mode'] == 'dump'
       send_okay({ path: '/' + path.join('/'), method: method })
-    elsif MockBetter.conf['default']['mode'] == 'echo'
+    elsif @conf['default']['mode'] == 'echo'
       send_okay body
     else # mock
       [
-        MockBetter.conf['default']['code'],
-        MockBetter.conf['headers'],
-        [MockBetter.conf['default']['body'].to_json]
+        @conf['default']['code'],
+        @conf['headers'],
+        [@conf['default']['body'].to_json]
       ]
     end
   end
@@ -74,84 +64,68 @@ class MockBetter
     method = env['REQUEST_METHOD']
     path = env['REQUEST_PATH']
     parts = path.split('/').drop(1)
+    puts parts.inspect
 
     ## GET CONFIG
-    if method == 'GET' && parts == %w[mock conf]
+    if method == 'GET' && parts == [@conf['prefix'], 'conf']
       send_conf
 
     ## UPDATE CONFIG
-    elsif method == 'PUT' && parts == %w[mock conf]
+    elsif method == 'PUT' && parts == [@conf['prefix'], 'conf']
       unless body.is_a?(Hash)
         send_error 'a json object is required'
       else
-        merge_conf(MockBetter.conf, body || {})
+        merge_conf(@conf, body || {})
         send_conf
       end
 
     ## RESET EVERYTHING
-    elsif method == 'PUT' && parts == %w[mock reset]
+    elsif method == 'PUT' && parts == [@conf['prefix'], 'reset']
       reset
       send_conf
 
-    ## CREATE MOCK TENANT ROUTE
-    elsif method == 'PUT' && parts[0..1] == %w[mock routes]
+    ## CREATE MOCK ROUTE
+    elsif method == 'PUT' && parts == [@conf['prefix'], 'routes']
       unless body.is_a?(Hash)
         return send_error 'a json object is required'
       end
 
-      name = parts[2]
-      unless name
-        return send_error 'a tenant is required'
-      end
-
-      tenant(name)['routes'].each do |route|
+      @conf['routes'].each do |route|
         if route['method'] == body['method'] && route['path'] == body['path']
           return send_conf
         end
       end
 
-      tenant(name)['routes'] << body
+      @conf['routes'] << body
       send_conf
 
-    ## DELETE TENANT ROUTE
-    elsif method == 'DELETE' && parts[0..1] == %w[mock routes]
-      name = parts[2]
-      unless name
-        return send_error 'a tenant is required'
-      end
-
-      tenant(name)['routes'] = []
+    ## DELETE ROUTE
+    elsif method == 'DELETE' && parts == [@conf['prefix'], 'routes']
+      @conf['routes'] = []
       send_conf
 
-    ## GET TENANT HISTORY
-    elsif method == 'GET' && parts[0..1] == %w[mock history]
-      name = parts[2]
-      send_okay tenant(name)['history']
+    ## GET HISTORY
+    elsif method == 'GET' && parts == [@conf['prefix'], 'history']
+      send_okay @conf['history']
 
-    ## DELETE TENANT HISTORY
-    elsif method == 'DELETE' && parts[0..1] == %w[mock history]
-      name = parts[2]
-      tenant(name)['history'] = []
+    ## DELETE HISTORY
+    elsif method == 'DELETE' && parts == [@conf['prefix'], 'history']
+      @conf['history'] = []
       send_conf
 
     ## MOCK & DEFAULT RESPONSES
     else
-      name = parts.first
-      unless name
-        return send_error 'a tenant is required'
-      end
-
-      tenant(name)['history'] << {
+      @conf['history'] << {
         'method' => method,
         'body' => body,
         'path' => '/' + parts.drop(1).join('/'),
       }
 
-      tenant(name)['routes'].each do |route|
+      @conf['routes'].each do |route|
         if (method == route['method'] || route['method'] == 'ANY') && path =~ /#{route['path']}/
           return [
             route['code'],
-            MockBetter.conf['headers'].merge(route['headers'] || {}),
+            @conf['headers'].merge(route['headers'] || {}),
             [route['body'].to_json]
           ]
         end
