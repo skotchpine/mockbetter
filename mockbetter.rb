@@ -64,7 +64,6 @@ class MockBetter
     method = env['REQUEST_METHOD']
     path = env['REQUEST_PATH']
     parts = path.split('/').drop(1)
-    puts parts.inspect
 
     ## GET CONFIG
     if method == 'GET' && parts == [@conf['prefix'], 'conf']
