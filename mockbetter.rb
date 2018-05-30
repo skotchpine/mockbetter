@@ -117,7 +117,7 @@ class MockBetter
       @conf['history'] << {
         'method' => method,
         'body' => body,
-        'path' => '/' + parts.drop(1).join('/'),
+        'path' => path,
       }
 
       @conf['routes'].each do |route|

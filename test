@@ -172,13 +172,17 @@ end
 describe 'request history' do
   put '/mock/reset'
 
-  post '/route1', json: { message: 1 }
-  post '/route2', json: { message: 2 }
-  post '/route3', json: { message: 3 }
+  get '/a', json: { message: 1 }
+  post '/b', json: { message: 2 }
+  patch '/c', json: { message: 3 }
 
   _, body = get '/mock/history'
-  test 'records history',
+  test 'records history bodies',
     body.map { |r| r['body']['message'] } == [1, 2, 3]
+  test 'records history methods',
+    body.map { |r| r['method'] } == %w[GET POST PATCH]
+  test 'records history paths',
+    body.map { |r| r['path'] } == %w[/a /b /c]
 
   delete '/mock/history'
   _, body = get '/mock/history'
